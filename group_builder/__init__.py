@@ -103,7 +103,7 @@ async def sync_users_to_groups(
     # ready servers (running, not pending).
     auth_header = {"Authorization": f"token {api_token}"}
 
-    async def get_user_info(url, user):
+    async def get_user_info(user):
         user_url = f"{url}/users/{user["name"]}"
 
         req = HTTPRequest(
