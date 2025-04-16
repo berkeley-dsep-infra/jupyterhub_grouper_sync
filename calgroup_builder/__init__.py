@@ -1,21 +1,19 @@
+import os
+import subprocess
 import asyncio
 import json
 import logging
-import os
+import requests
+
 from functools import partial
 from textwrap import dedent
-from urllib.parse import quote
-
-from packaging.version import Version as V
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from tornado.httputil import url_concat
 from tornado.ioloop import IOLoop, PeriodicCallback
 from tornado.log import LogFormatter
-from traitlets import Bool, Int, Unicode, default
+from traitlets import Int, Unicode, default
 from traitlets.config import Application
 
-import subprocess
-import requests
 
 __version__ = "0.0.1.dev"
 
@@ -28,13 +26,13 @@ def auth(user, password):
     return requests.auth.HTTPBasicAuth(user, password)
 
 
-async def sync_users_to_calgroups(
-    hub_name,
+async def sync_users_to_groups(
     url,
     api_token,
     grouper_user,
     grouper_pass,
-    calgroup_base_url,
+    group_base_url,
+    group_name,
     logger,
     concurrency=10,
     api_page_size=0,
@@ -63,7 +61,6 @@ async def sync_users_to_calgroups(
 
     else:
         fetch = client.fetch
-
 
     async def fetch_paginated(req):
         """Make a paginated API request
@@ -106,32 +103,26 @@ async def sync_users_to_calgroups(
     # ready servers (running, not pending).
     auth_header = {"Authorization": f"token {api_token}"}
 
-
-    async def get_user_info(user):
+    async def get_user_info(url, user):
         user_url = f"{url}/users/{user["name"]}"
-        
+
         req = HTTPRequest(
             url=user_url,
             headers=auth_header,
         )
-        try: 
+        try:
             response = await fetch(req)
-            user_data = json.loads(response.body.decode('utf-8'))
-            return {
-            "status": "success",
-            "user_data": user_data
-        }
+            user_data = json.loads(response.body.decode("utf-8"))
+            return {"status": "success", "user_data": user_data}
         except Exception as e:
             logger.error((f"An error occurred while running the command: {e}"))
-            return {
-            "status": "error",
-            "message": f"Unexpected error: {e}"
-        }
+            return {"status": "error", "message": f"Unexpected error: {e}"}
 
     async def add_members(base_uri, auth, group, replace_existing, members):
-        """Replace the members of the grouper group {group} with {users}."""
-        # https://github.com/Internet2/grouper/blob/master/grouper-ws/grouper-ws/doc/samples/addMember/WsSampleAddMemberRest_json.txt
-        print(f"Adding members to {group}")
+        """
+        Replace the members of the grouper group {group} with {users}.
+        https://github.com/Internet2/grouper/blob/master/grouper-ws/grouper-ws/doc/samples/addMember/WsSampleAddMemberRest_json.txt
+        """
         data = {
             "WsRestAddMemberRequest": {
                 "replaceAllExisting": boolean_string(replace_existing),
@@ -145,7 +136,9 @@ async def sync_users_to_calgroups(
             else:
                 # e.g. group path id
                 member_key = "subjectIdentifier"
-            data["WsRestAddMemberRequest"]["subjectLookups"].append({member_key: member})
+            data["WsRestAddMemberRequest"]["subjectLookups"].append(
+                {member_key: member}
+            )
         r = requests.put(
             f"{base_uri}/groups/{group}/members",
             data=json.dumps(data),
@@ -156,44 +149,42 @@ async def sync_users_to_calgroups(
         problem_key = "WsRestResultProblem"
         try:
             if problem_key in out:
-                print(f"{problem_key} in output")
+                logger.warning(f"{problem_key} in output")
                 meta = out[problem_key]["resultMetadata"]
                 raise Exception(meta)
             results_key = "WsAddMemberResults"
         except Exception as e:
-            print(f" error: {e}")
+            logger.error(f" error: {e}")
         return out
 
-
-    async def handle_user(users_to_process):
-        group_base = "edu:berkeley:app:datahub:"
-        if hub_name == "datahub":
-            group_name = group_base + "datahub-users"
-        else:
-            group_name = group_base + "datahub-" + hub_name + "-users"
-
+    async def handle_user(users_to_process, group_name):
+        """
+        Examples of group_name:
+        edu:berkeley:app:datahub:datahub-users
+        edu:berkeley:app:datahub:datahub-dev-users
+        """
         members = []
         for user in users_to_process:
             user_is_admin = user["admin"]
             if not user_is_admin:
                 user_data = await get_user_info(user)
                 if "user_data" in user_data:
-                    login_id = user_data["user_data"]["auth_state"]["oauth_user"]["login_id"]
+                    login_id = user_data["user_data"]["auth_state"]["oauth_user"][
+                        "login_id"
+                    ]
                     members.append(login_id)
 
         try:
-            grouper_auth = auth(
-                grouper_user, grouper_pass
+            grouper_auth = auth(grouper_user, grouper_pass)
+            logger.info(
+                f"Found {len(members)} members to add to the {group_name} group. "
             )
-            logger.info(f"Found {len(members)} members to add in the {hub_name} hub. ")
-            logger.info(f"Group name: {group_name}")
             logger.info(f"Members: {members}")
 
-            await add_members(calgroup_base_url, grouper_auth, group_name, True, members)
-            logger.info(f"Done adding members in the {hub_name} hub. ")
+            await add_members(group_base_url, grouper_auth, group_name, True, members)
+            logger.info(f"Done adding members to the {group_name} group. ")
         except subprocess.CalledProcessError as e:
             logger.error(f"An error occurred while running the command: {e}")
-
 
     params = {}
     if api_page_size:
@@ -209,10 +200,10 @@ async def sync_users_to_calgroups(
     async for user in fetch_paginated(req):
         users_to_process.append(user)
 
-    await handle_user(users_to_process)
+    await handle_user(users_to_process, group_name)
 
 
-class CalgroupBuilder(Application):
+class GroupBuilder(Application):
 
     api_page_size = Int(
         0,
@@ -232,9 +223,6 @@ class CalgroupBuilder(Application):
         help=dedent(
             """
             Limit the number of concurrent requests made to the Hub.
-
-            Deleting a lot of users at the same time can slow down the Hub,
-            so limit the number of API requests we have outstanding at any given time.
             """
         ).strip(),
     ).tag(
@@ -245,7 +233,7 @@ class CalgroupBuilder(Application):
         0,
         help=dedent(
             """
-            The interval (in seconds) for checking for idle servers to cull.
+            The interval (in seconds) for syncing Jupyterhub users.
             """
         ).strip(),
     ).tag(
@@ -254,7 +242,7 @@ class CalgroupBuilder(Application):
 
     @default("sync_every")
     def _default_sync_every(self):
-        return self.timeout * 6
+        return 3600  ## 3600s
 
     _log_formatter_cls = LogFormatter
 
@@ -272,28 +260,6 @@ class CalgroupBuilder(Application):
         """override default log format to include time"""
         return "%(color)s[%(levelname)1.1s %(asctime)s.%(msecs).03d %(name)s %(module)s:%(lineno)d]%(end_color)s %(message)s"
 
-    timeout = Int(
-        600,
-        help=dedent(
-            """
-            The idle timeout (in seconds).
-            """
-        ).strip(),
-    ).tag(
-        config=True,
-    )
-
-    hub_name = Unicode(
-        "datahub",  
-        allow_none=False,
-        help=dedent(
-            """
-            Name for the target hub.
-            """
-        ).strip(),
-    ).tag(config=True)
-
-
     url = Unicode(
         os.environ.get("JUPYTERHUB_API_URL"),
         allow_none=True,
@@ -306,12 +272,11 @@ class CalgroupBuilder(Application):
         config=True,
     )
 
-    calgroup_base_url = Unicode(
-        os.environ.get("Calgroup_Base_URL"),
+    group_base_url = Unicode(
         allow_none=False,
         help=dedent(
             """
-            The Calgroup Base URL.
+            The group base URL.
             """
         ).strip(),
     ).tag(
@@ -319,7 +284,6 @@ class CalgroupBuilder(Application):
     )
 
     grouper_user = Unicode(
-        os.environ.get("grouper_user"),
         allow_none=False,
         help=dedent(
             """
@@ -331,7 +295,6 @@ class CalgroupBuilder(Application):
     )
 
     grouper_pass = Unicode(
-        os.environ.get("grouper_pass"),
         allow_none=False,
         help=dedent(
             """
@@ -342,21 +305,32 @@ class CalgroupBuilder(Application):
         config=True,
     )
 
+    group_name = Unicode(
+        allow_none=False,
+        help=dedent(
+            """
+            The grouper group name.
+            """
+        ).strip(),
+    ).tag(
+        config=True,
+    )
 
     aliases = {
-        "api-page-size": "CalgroupBuilder.api_page_size",
-        "concurrency": "CalgroupBuilder.concurrency",
-        "cull-every": "CalgroupBuilder.cull_every",
-        "timeout": "CalgroupBuilder.timeout",
-        "hub_name": "CalgroupBuilder.hub_name",
-        "url": "CalgroupBuilder.url",
-        "calgroup_base_url": "CalgroupBuilder.calgroup_base_url",
-        "grouper_user": "CalgroupBuilder.grouper_user",
-        "grouper_pass": "CalgroupBuilder.grouper_pass",
+        "api-page-size": "GroupBuilder.api_page_size",
+        "concurrency": "GroupBuilder.concurrency",
+        "url": "GroupBuilder.url",
+        "group_base_url": "GroupBuilder.group_base_url",
+        "grouper_user": "GroupBuilder.grouper_user",
+        "grouper_pass": "GroupBuilder.grouper_pass",
+        "group_name": "GroupBuilder.group_name",
     }
 
     def start(self):
-        api_token = os.environ["JUPYTERHUB_API_TOKEN"]
+        try:
+            api_token = os.environ["JUPYTERHUB_API_TOKEN"]
+        except Exception as e:
+            self.log.error(f"Error getting JUPYTERHUB_API_TOKEN. {e}")
 
         try:
             AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
@@ -367,23 +341,23 @@ class CalgroupBuilder(Application):
             )
 
         loop = IOLoop.current()
-        sync_calgroups = partial(
-            sync_users_to_calgroups,
-            hub_name=self.hub_name,
+        sync_groups = partial(
+            sync_users_to_groups,
             url=self.url,
             api_token=api_token,
             grouper_user=self.grouper_user,
             grouper_pass=self.grouper_pass,
-            calgroup_base_url=self.calgroup_base_url,
+            group_base_url=self.group_base_url,
+            group_name=self.group_name,
             logger=self.log,
             concurrency=self.concurrency,
             api_page_size=self.api_page_size,
         )
         # schedule first sync immediately
         # because PeriodicCallback doesn't start until the end of the first interval
-        loop.add_callback(sync_calgroups)
+        loop.add_callback(sync_groups)
         # schedule periodic sync
-        pc = PeriodicCallback(sync_calgroups, 1e3 * self.sync_every)
+        pc = PeriodicCallback(sync_groups, 1e3 * self.sync_every)
         pc.start()
         try:
             loop.start()
@@ -392,7 +366,7 @@ class CalgroupBuilder(Application):
 
 
 def main():
-    CalgroupBuilder.launch_instance()
+    GroupBuilder.launch_instance()
 
 
 if __name__ == "__main__":
