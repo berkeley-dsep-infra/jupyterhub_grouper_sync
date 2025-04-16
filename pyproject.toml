@@ -4,11 +4,11 @@ build-backend = "hatchling.build"
 
 
 [project]
-name = "calgroup_builder"
-description = "Syncs JupyterHub users to Calgroup"
+name = "group_builder"
+description = "Syncs JupyterHub users to grouper groups"
 readme = "README.md"
 requires-python = ">=3.11"
-keywords = ["jupyterhub", "calgroup", "sync"]
+keywords = ["jupyterhub", "group", "sync"]
 authors = [
     {name = "yijun", email = "yijunge@berkeley.edu"},
 ]
@@ -36,18 +36,18 @@ test = [
 ]
 
 [project.scripts]
-"calgroup-sync" = "calgroup_builder:main"
+"group-sync" = "group_builder:main"
 
 [project.urls]
-Documentation = "https://github.com/berkeley-dsep-infra/calgroup_builder#readme"
-Source = "https://github.com/berkeley-dsep-infra/calgroup_builder"
-Issues = "https://github.com/berkeley-dsep-infra/calgroup_builder/issues"
+Documentation = "https://github.com/berkeley-dsep-infra/group_builder#readme"
+Source = "https://github.com/berkeley-dsep-infra/group_builder"
+Issues = "https://github.com/berkeley-dsep-infra/group_builder/issues"
 
 
 # hatch ref: https://hatch.pypa.io/latest/
 #
 [tool.hatch.version]
-path = "calgroup_builder/__init__.py"
+path = "group_builder/__init__.py"
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -74,7 +74,7 @@ profile = "black"
 # ref: https://docs.pytest.org/en/stable/
 #
 [tool.pytest.ini_options]
-addopts = "--verbose --color=yes --durations=10 --cov=calgroup_builder"
+addopts = "--verbose --color=yes --durations=10 --cov=group_builder"
 asyncio_mode = "auto"
 
 
@@ -84,7 +84,7 @@ asyncio_mode = "auto"
 # ref: https://github.com/your-tools/tbump#readme
 #
 [tool.tbump]
-github_url = "https://github.com/berkeley-dsep-infra/calgroup_builder"
+github_url = "https://github.com/berkeley-dsep-infra/group_builder"
 
 [tool.tbump.version]
 current = "0.0.1.dev"
@@ -104,4 +104,4 @@ message_template = "Bump to {new_version}"
 tag_template = "{new_version}"
 
 [[tool.tbump.file]]
-src = "calgroup_builder/__init__.py"
+src = "group_builder/__init__.py"
