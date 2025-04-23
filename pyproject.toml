@@ -4,11 +4,11 @@ build-backend = "hatchling.build"
 
 
 [project]
-name = "group_builder"
+name = "jupyterhub_grouper_sync"
 description = "Syncs JupyterHub users to grouper groups"
 readme = "README.md"
 requires-python = ">=3.11"
-keywords = ["jupyterhub", "group", "sync"]
+keywords = ["jupyterhub", "grouper", "sync"]
 authors = [
     {name = "yijun", email = "yijunge@berkeley.edu"},
 ]
@@ -36,18 +36,18 @@ test = [
 ]
 
 [project.scripts]
-"group-sync" = "group_builder:main"
+"grouper-sync" = "jupyterhub_grouper_sync:main"
 
 [project.urls]
-Documentation = "https://github.com/berkeley-dsep-infra/group_builder#readme"
-Source = "https://github.com/berkeley-dsep-infra/group_builder"
-Issues = "https://github.com/berkeley-dsep-infra/group_builder/issues"
+Documentation = "https://github.com/berkeley-dsep-infra/jupyterhub_grouper_sync#readme"
+Source = "https://github.com/berkeley-dsep-infra/jupyterhub_grouper_sync"
+Issues = "https://github.com/berkeley-dsep-infra/jupyterhub_grouper_sync/issues"
 
 
 # hatch ref: https://hatch.pypa.io/latest/
 #
 [tool.hatch.version]
-path = "group_builder/__init__.py"
+path = "jupyterhub_grouper_sync/__init__.py"
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -74,7 +74,7 @@ profile = "black"
 # ref: https://docs.pytest.org/en/stable/
 #
 [tool.pytest.ini_options]
-addopts = "--verbose --color=yes --durations=10 --cov=group_builder"
+addopts = "--verbose --color=yes --durations=10 --cov=jupyterhub_grouper_sync"
 asyncio_mode = "auto"
 
 
@@ -84,7 +84,7 @@ asyncio_mode = "auto"
 # ref: https://github.com/your-tools/tbump#readme
 #
 [tool.tbump]
-github_url = "https://github.com/berkeley-dsep-infra/group_builder"
+github_url = "https://github.com/berkeley-dsep-infra/jupyterhub_grouper_sync"
 
 [tool.tbump.version]
 current = "0.0.1.dev"
@@ -104,4 +104,4 @@ message_template = "Bump to {new_version}"
 tag_template = "{new_version}"
 
 [[tool.tbump.file]]
-src = "group_builder/__init__.py"
+src = "jupyterhub_grouper_sync/__init__.py"

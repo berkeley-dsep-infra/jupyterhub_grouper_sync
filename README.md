@@ -1,30 +1,30 @@
-# group_builder
+# jupyterhub_grouper_sync
 
-group_builder is a JupyterHub hub-managed service that syncs Jupyterhub users to grouper groups. 
+jupyterhub_grouper_sync is a JupyterHub hub-managed service that syncs Jupyterhub users to grouper groups. 
 
 ## Configuration
 
-group_builder is configured through traitlets. Here is an example configuration:
+jupyterhub_grouper_sync is configured through traitlets. Here is an example configuration:
 
 ```python
 
 c.JupyterHub.services = [
     {
-        'name': "group-builder",
-        'command': ["group-sync",  '--url=http://localhost:8081/hub/api', '--group_base_url=https://calgroups.berkeley.edu/gws/servicesRest/json/v2_2_100', '--grouper_user={grouper user}', '--grouper_pass={grouper password}', '--group_name=edu:berkeley:app:datahub:datahub-dev-users']
+        'name': "grouper-sync",
+        'command': ["grouper-sync",  '--url=http://localhost:8081/hub/api', '--grouper_base_url=https://calgroups.berkeley.edu/gws/servicesRest/json/v2_2_100', '--grouper_user={grouper user}', '--grouper_pass={grouper password}', '--grouper_id_path=edu:berkeley:app:datahub:datahub-dev-users']
     }
 ]
 
 c.JupyterHub.load_roles = [
     {
-        "name": "group-builder",
+        "name": "grouper-sync",
         "scopes": [
             "list:users",
             "read:users",
             "admin:auth_state",
         ],
         # assign the role to our service, so it gains these permissions
-        "services": ["group-builder"],
+        "services": ["grouper-sync"],
     }
 ]
 

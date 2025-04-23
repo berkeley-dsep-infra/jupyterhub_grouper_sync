@@ -1,4 +1,5 @@
 import os
+import sys
 import subprocess
 import asyncio
 import json
@@ -31,8 +32,8 @@ async def sync_users_to_groups(
     api_token,
     grouper_user,
     grouper_pass,
-    group_base_url,
-    group_name,
+    grouper_base_url,
+    grouper_id_path,
     logger,
     concurrency=10,
     api_page_size=0,
@@ -157,9 +158,9 @@ async def sync_users_to_groups(
             logger.error(f" error: {e}")
         return out
 
-    async def handle_user(users_to_process, group_name):
+    async def handle_user(users_to_process, grouper_id_path):
         """
-        Examples of group_name:
+        Examples of grouper_id_path:
         edu:berkeley:app:datahub:datahub-users
         edu:berkeley:app:datahub:datahub-dev-users
         """
@@ -177,12 +178,12 @@ async def sync_users_to_groups(
         try:
             grouper_auth = auth(grouper_user, grouper_pass)
             logger.info(
-                f"Found {len(members)} members to add to the {group_name} group. "
+                f"Found {len(members)} members to add to the {grouper_id_path} group. "
             )
             logger.info(f"Members: {members}")
 
-            await add_members(group_base_url, grouper_auth, group_name, True, members)
-            logger.info(f"Done adding members to the {group_name} group. ")
+            await add_members(grouper_base_url, grouper_auth, grouper_id_path, True, members)
+            logger.info(f"Done adding members to the {grouper_id_path} group. ")
         except subprocess.CalledProcessError as e:
             logger.error(f"An error occurred while running the command: {e}")
 
@@ -200,10 +201,10 @@ async def sync_users_to_groups(
     async for user in fetch_paginated(req):
         users_to_process.append(user)
 
-    await handle_user(users_to_process, group_name)
+    await handle_user(users_to_process, grouper_id_path)
 
 
-class GroupBuilder(Application):
+class GrouperSync(Application):
 
     api_page_size = Int(
         0,
@@ -272,7 +273,8 @@ class GroupBuilder(Application):
         config=True,
     )
 
-    group_base_url = Unicode(
+    grouper_base_url = Unicode(
+        os.environ.get("GROUPER_BASE_URL"),
         allow_none=False,
         help=dedent(
             """
@@ -284,6 +286,7 @@ class GroupBuilder(Application):
     )
 
     grouper_user = Unicode(
+        os.environ.get("GROUPER_USER"),
         allow_none=False,
         help=dedent(
             """
@@ -295,6 +298,7 @@ class GroupBuilder(Application):
     )
 
     grouper_pass = Unicode(
+        os.environ.get("GROUPER_PASSWORD"),
         allow_none=False,
         help=dedent(
             """
@@ -305,7 +309,8 @@ class GroupBuilder(Application):
         config=True,
     )
 
-    group_name = Unicode(
+    grouper_id_path = Unicode(
+        os.environ.get("GROUPER_ID_PATH"),
         allow_none=False,
         help=dedent(
             """
@@ -317,13 +322,13 @@ class GroupBuilder(Application):
     )
 
     aliases = {
-        "api-page-size": "GroupBuilder.api_page_size",
-        "concurrency": "GroupBuilder.concurrency",
-        "url": "GroupBuilder.url",
-        "group_base_url": "GroupBuilder.group_base_url",
-        "grouper_user": "GroupBuilder.grouper_user",
-        "grouper_pass": "GroupBuilder.grouper_pass",
-        "group_name": "GroupBuilder.group_name",
+        "api-page-size": "GrouperSync.api_page_size",
+        "concurrency": "GrouperSync.concurrency",
+        "url": "GrouperSync.url",
+        "grouper_base_url": "GrouperSync.grouper_base_url",
+        "grouper_user": "GrouperSync.grouper_user",
+        "grouper_pass": "GrouperSync.grouper_pass",
+        "grouper_id_path": "GrouperSync.grouper_id_path",
     }
 
     def start(self):
@@ -331,6 +336,7 @@ class GroupBuilder(Application):
             api_token = os.environ["JUPYTERHUB_API_TOKEN"]
         except Exception as e:
             self.log.error(f"Error getting JUPYTERHUB_API_TOKEN. {e}")
+            sys.exit(1)
 
         try:
             AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
@@ -347,8 +353,8 @@ class GroupBuilder(Application):
             api_token=api_token,
             grouper_user=self.grouper_user,
             grouper_pass=self.grouper_pass,
-            group_base_url=self.group_base_url,
-            group_name=self.group_name,
+            grouper_base_url=self.grouper_base_url,
+            grouper_id_path=self.grouper_id_path,
             logger=self.log,
             concurrency=self.concurrency,
             api_page_size=self.api_page_size,
@@ -366,7 +372,7 @@ class GroupBuilder(Application):
 
 
 def main():
-    GroupBuilder.launch_instance()
+    GrouperSync.launch_instance()
 
 
 if __name__ == "__main__":
