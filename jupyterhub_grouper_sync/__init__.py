@@ -4,10 +4,10 @@ import subprocess
 import asyncio
 import json
 import logging
-import requests
-
 from functools import partial
 from textwrap import dedent
+
+import requests
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from tornado.httputil import url_concat
 from tornado.ioloop import IOLoop, PeriodicCallback
@@ -105,7 +105,7 @@ async def sync_users_to_groups(
     auth_header = {"Authorization": f"token {api_token}"}
 
     async def get_user_info(user):
-        user_url = f"{url}/users/{user["name"]}"
+        user_url = f"{url}/users/{user['name']}"
 
         req = HTTPRequest(
             url=user_url,
@@ -116,7 +116,7 @@ async def sync_users_to_groups(
             user_data = json.loads(response.body.decode("utf-8"))
             return {"status": "success", "user_data": user_data}
         except Exception as e:
-            logger.error((f"An error occurred while running the command: {e}"))
+            logger.error((f"An error occurred while getting the user {user['name']}: {e}"))
             return {"status": "error", "message": f"Unexpected error: {e}"}
 
     async def add_members(base_uri, auth, group, replace_existing, members):
@@ -155,7 +155,7 @@ async def sync_users_to_groups(
                 raise Exception(meta)
             results_key = "WsAddMemberResults"
         except Exception as e:
-            logger.error(f" error: {e}")
+            logger.error(f"Error: {e}")
         return out
 
     async def handle_user(users_to_process, grouper_id_path):
@@ -185,7 +185,7 @@ async def sync_users_to_groups(
             await add_members(grouper_base_url, grouper_auth, grouper_id_path, True, members)
             logger.info(f"Done adding members to the {grouper_id_path} group. ")
         except subprocess.CalledProcessError as e:
-            logger.error(f"An error occurred while running the command: {e}")
+            logger.error(f"An error occurred while communicating with {grouper_base_url}: {e}")
 
     params = {}
     if api_page_size:
