@@ -97,7 +97,7 @@ async def sync_users_to_groups(
                 item_count += 1
                 yield item
 
-        logger.debug(f"Fetched {item_count} items from {url} in {page_no} pages")
+        logger.info(f"Fetched {item_count} items from {url} in {page_no} pages")
 
     # Starting with jupyterhub 1.3.0 the users can be filtered in the server
     # using the `state` filter parameter. "ready" means all users who have any
@@ -170,6 +170,7 @@ async def sync_users_to_groups(
             if not user_is_admin:
                 user_data = await get_user_info(user)
                 if "user_data" in user_data:
+                    logger.info(f"Processing user_data: {user_data}")
                     login_id = user_data["user_data"]["auth_state"]["canvas_user"][
                         "id"
                     ]
