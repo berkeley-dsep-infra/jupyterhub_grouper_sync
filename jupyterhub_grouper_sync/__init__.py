@@ -171,7 +171,6 @@ async def sync_users_to_groups(
                 user_data = await get_user_info(user)
                 if "user_data" not in user_data:
                     continue
-                logger.info(f"Processing user_data {user_data["user_data"]}")
                 auth_state = user_data["user_data"].get("auth_state") or {}
                 if "canvas_user" in auth_state:
                     login_id = auth_state["canvas_user"]["login_id"]
