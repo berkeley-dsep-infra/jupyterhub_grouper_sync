@@ -170,10 +170,17 @@ async def sync_users_to_groups(
             if not user_is_admin:
                 user_data = await get_user_info(user)
                 if "user_data" in user_data:
-                    logger.info(f"Processing user_data: {user_data}")
-                    login_id = user_data["user_data"]["auth_state"]["canvas_user"][
-                        "id"
-                    ]
+                    if "canvas_user" in user_data["user_data"]["auth_state"]:
+                        login_id = user_data["user_data"]["auth_state"]["canvas_user"][
+                            "login_id"
+                        ]
+                    elif "oauth_user" in user_data["user_data"]["auth_state"]:
+                           login_id = user_data["user_data"]["auth_state"]["oauth_user"][
+                            "login_id"
+                        ]
+                    else:
+                        logger.error(f"oauth_user and canvas_user do not exist in auth_state)
+                        logger.error(f"auth_state is {user_data["user_data"]["auth_state"]}")
                     members.append(login_id)
 
         try:
