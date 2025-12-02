@@ -170,8 +170,8 @@ async def sync_users_to_groups(
             if not user_is_admin:
                 user_data = await get_user_info(user)
                 if "user_data" in user_data:
-                    login_id = user_data["user_data"]["auth_state"]["oauth_user"][
-                        "login_id"
+                    login_id = user_data["user_data"]["auth_state"]["canvas_user"][
+                        "id"
                     ]
                     members.append(login_id)
 
