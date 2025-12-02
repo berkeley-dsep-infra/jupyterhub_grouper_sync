@@ -97,7 +97,7 @@ async def sync_users_to_groups(
                 item_count += 1
                 yield item
 
-        logger.debug(f"Fetched {item_count} items from {url} in {page_no} pages")
+        logger.info(f"Fetched {item_count} items from {url} in {page_no} pages")
 
     # Starting with jupyterhub 1.3.0 the users can be filtered in the server
     # using the `state` filter parameter. "ready" means all users who have any
@@ -169,11 +169,18 @@ async def sync_users_to_groups(
             user_is_admin = user["admin"]
             if not user_is_admin:
                 user_data = await get_user_info(user)
-                if "user_data" in user_data:
-                    login_id = user_data["user_data"]["auth_state"]["canvas_user"][
-                        "id"
-                    ]
-                    members.append(login_id)
+                if "user_data" not in user_data:
+                    continue
+                auth_state = user_data["user_data"].get("auth_state") or {}
+                if "canvas_user" in auth_state:
+                    login_id = auth_state["canvas_user"]["login_id"]
+                elif "oauth_user" in auth_state:
+                    login_id = auth_state["oauth_user"]["login_id"]
+                else:
+                    logger.error(f"oauth_user and canvas_user do not exist in auth_state")
+                    logger.error(f"auth_state is {user_data["user_data"]["auth_state"]}")
+                    continue
+                members.append(login_id)
 
         try:
             grouper_auth = auth(grouper_user, grouper_pass)
