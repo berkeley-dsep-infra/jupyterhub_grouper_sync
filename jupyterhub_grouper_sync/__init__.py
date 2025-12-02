@@ -179,7 +179,7 @@ async def sync_users_to_groups(
                             "login_id"
                         ]
                     else:
-                        logger.error(f"oauth_user and canvas_user do not exist in auth_state)
+                        logger.error(f"oauth_user and canvas_user do not exist in auth_state")
                         logger.error(f"auth_state is {user_data["user_data"]["auth_state"]}")
                     members.append(login_id)
 
